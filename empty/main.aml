@@ -1,0 +1,6 @@
+contract MyContract {
+  state { owner: address }
+  constructor() {
+    self.owner = caller
+  }
+}

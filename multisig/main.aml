@@ -1,0 +1,56 @@
+contract Multisig {
+  const MAX_OWNERS: int = 5
+  state {
+    owners: list[address]
+    threshold: int
+    next_id: int
+    proposals: map[int]string
+    prop_amounts: map[int]int
+    prop_targets: map[int]address
+    votes: map[int]map[address]bool
+    vote_counts: map[int]int
+    executed: map[int]bool
+  }
+
+  event Proposed(id: int, target: address, amount: int)
+  event Voted(id: int, voter: address)
+  event Executed(id: int)
+
+  constructor(threshold_val: int) {
+    require(threshold_val > 0, "threshold must be > 0")
+    self.threshold = threshold_val
+    self.next_id = 0
+    self.owners.push(origin)
+  }
+
+  fn propose(target: address, amount: int, desc: string): int {
+    assert_address(target)
+    let id = self.next_id
+    self.proposals[id] = desc
+    self.prop_amounts[id] = amount
+    self.prop_targets[id] = target
+    self.vote_counts[id] = 0
+    self.executed[id] = false
+    self.next_id = id + 1
+    emit Proposed(id, target, amount)
+    return id
+  }
+
+  fn vote(id: int): bool {
+    require(!self.executed[id], "already executed")
+    require(!self.votes[id][caller], "already voted")
+    self.votes[id][caller] = true
+    self.vote_counts[id] += 1
+    emit Voted(id, caller)
+    if self.vote_counts[id] >= self.threshold {
+      self.executed[id] = true
+      transfer(self.prop_targets[id], self.prop_amounts[id])
+      emit Executed(id)
+    }
+    return true
+  }
+
+  view fn get_proposal(id: int): string {
+    return self.proposals[id]
+  }
+}

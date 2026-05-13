@@ -1,0 +1,68 @@
+import IOCS01 from "interfaces/IOCS01.aml"
+
+contract Token implements IOCS01 {
+  state {
+    name: string
+    symbol: string
+    total_supply: int
+    decimals: int
+    owner: address
+    balances: map[address]int
+    grants: map[address]map[address]int
+  }
+
+  event Transfer(from: address, to: address, amount: int)
+  event Grant(owner: address, spender: address, amount: int)
+
+  constructor(n: string, s: string, supply: int, dec: int) {
+    require(len(n) > 0, "name empty")
+    self.name = n
+    self.symbol = s
+    self.total_supply = supply
+    self.decimals = dec
+    self.owner = origin
+    self.balances[origin] = supply
+    emit Transfer(origin, origin, supply)
+  }
+
+  view fn decimals(): int { return self.decimals }
+  view fn balance_of(addr: address): int { return self.balances[addr] }
+
+  view fn allowance(owner: address, spender: address): int {
+    return self.grants[owner][spender]
+  }
+
+  view fn get_name(): string { return self.name }
+  view fn get_symbol(): string { return self.symbol }
+  view fn get_total_supply(): int { return self.total_supply }
+
+  fn transfer(to: address, amt: int): bool {
+    assert_address(to)
+    let bal = self.balances[caller]
+    require(bal >= amt, "insufficient balance")
+    self.balances[caller] = bal - amt
+    self.balances[to] = self.balances[to] + amt
+    emit Transfer(caller, to, amt)
+    return true
+  }
+
+  fn grant(spender: address, amt: int): bool {
+    assert_address(spender)
+    self.grants[caller][spender] = amt
+    emit Grant(caller, spender, amt)
+    return true
+  }
+
+  fn pull(from: address, to: address, amt: int): bool {
+    assert_address(to)
+    let allowed = self.grants[from][caller]
+    require(allowed >= amt, "not allowed")
+    let bal = self.balances[from]
+    require(bal >= amt, "insufficient balance")
+    self.balances[from] = bal - amt
+    self.balances[to] = self.balances[to] + amt
+    self.grants[from][caller] = allowed - amt
+    emit Transfer(from, to, amt)
+    return true
+  }
+}

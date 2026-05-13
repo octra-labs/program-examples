@@ -1,0 +1,60 @@
+contract Escrow {
+  state {
+    seller: address
+    buyer: address
+    arbiter: address
+    amount: int
+    funded: bool
+    released: bool
+  }
+
+  event Created(seller: address, buyer: address, arbiter: address)
+  event Funded(amount: int)
+  event Released(to: address, amount: int)
+  event Refunded(to: address, amount: int)
+
+  constructor(s: address, b: address, a: address) {
+    assert_address(s)
+    assert_address(b)
+    assert_address(a)
+    self.seller = s
+    self.buyer = b
+    self.arbiter = a
+    self.amount = 0
+    self.funded = false
+    self.released = false
+    emit Created(s, b, a)
+  }
+
+  payable fn fund(): bool {
+    require(caller == self.buyer, "only buyer")
+    require(!self.funded, "already funded")
+    require(value > 0, "must send OCT")
+    self.amount = value
+    self.funded = true
+    emit Funded(value)
+    return true
+  }
+
+  fn release(): bool {
+    require(caller == self.buyer || caller == self.arbiter, "not authorized")
+    require(self.funded && !self.released, "invalid state")
+    self.released = true
+    transfer(self.seller, self.amount)
+    emit Released(self.seller, self.amount)
+    return true
+  }
+
+  fn refund(): bool {
+    require(caller == self.seller || caller == self.arbiter, "not authorized")
+    require(self.funded && !self.released, "invalid state")
+    self.released = true
+    transfer(self.buyer, self.amount)
+    emit Refunded(self.buyer, self.amount)
+    return true
+  }
+
+  view fn status(): string {
+    return !self.funded ? "awaiting_funding" : self.released ? "completed" : "funded"
+  }
+}

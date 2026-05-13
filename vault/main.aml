@@ -1,0 +1,41 @@
+contract Vault {
+  state {
+    owner: address
+    deposits: map[address]int
+    total: int
+  }
+
+  event Deposit(who: address, amount: int)
+  event Withdraw(who: address, amount: int)
+
+  constructor() {
+    self.owner = origin
+    self.total = 0
+  }
+
+  payable fn deposit(): int {
+    require(value > 0, "must send OCT")
+    self.deposits[caller] += value
+    self.total += value
+    emit Deposit(caller, value)
+    return self.deposits[caller]
+  }
+
+  nonreentrant fn withdraw(amt: int): bool {
+    let bal = self.deposits[caller]
+    require(bal >= amt, "insufficient deposit")
+    self.deposits[caller] = bal - amt
+    self.total -= amt
+    transfer(caller, amt)
+    emit Withdraw(caller, amt)
+    return true
+  }
+
+  view fn balance_of(addr: address): int {
+    return self.deposits[addr]
+  }
+
+  view fn total_locked(): int {
+    return self.total
+  }
+}
